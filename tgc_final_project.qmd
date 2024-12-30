@@ -1,7 +1,6 @@
 ---
 title: "Economic status of different countries in 2023, based on their average daily income"
 format: dashboard
-background_color: red
 ---
 
 
