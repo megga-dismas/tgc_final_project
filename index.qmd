@@ -21,7 +21,28 @@ average_daily_inocme = pd.read_csv("data/mincpcap_cppp.csv")
 ```
 
 ```{python}
-# Melt the data, and query for the year 2023
+# convert the population column to numeric.
+
+
+# Define a function to convert a string to numeric, replacing the letters with their appropriate values (thousands(k), million(m) and billion(b))
+def replace_letters_in_pop(string: str):
+    """Replace letters that are commonly used to write figures in their short forms.
+    For example, 1000 = 1k"""
+    string = string.upper()  # convert the string to upper case
+    # extract the letter from the string
+    letter = re.search("[BKM]$", string)
+    if letter:
+        letter_conversion_figure = {"K": 1000, "M": 1000000, "B": 1000000000}
+        char = letter.group(0)
+        return float(string.replace(char, "")) * letter_conversion_figure[char]
+    else:
+        return float(string)
+
+
+replace_letters_in_pop_vec = np.vectorize(replace_letters_in_pop)
+```
+```{python}
+# Melt the data
 
 # 1. population dataset
 pop_data_long = pd.melt(
@@ -29,7 +50,7 @@ pop_data_long = pd.melt(
     id_vars="country",
     var_name="year",
     value_name="population",
-).query("year == '2023'")
+)
 
 # 2. average_daily_inocme dataset
 average_daily_inocme_long = pd.melt(
@@ -37,12 +58,27 @@ average_daily_inocme_long = pd.melt(
     id_vars="country",
     var_name="year",
     value_name="ave_daily_income",
-).query("year == '2023'")
+)
 ```
 
 ```{python}
-# drop missing values in population dataset
+# Convert the year in the average_daily_inocme_long dataset to numeric
+average_daily_inocme_long["year"] = pd.to_numeric(average_daily_inocme_long["year"])
+
+# Also, do the same for the pop_data_long dataset
+pop_data_long["year"] = pd.to_numeric(pop_data_long["year"])
+```
+
+```{python}
+# drop missing values in the datasets
 pop_data_long = pop_data_long.dropna()
+average_daily_inocme_long = average_daily_inocme_long.dropna()
+```
+
+
+```{python}
+# The values of the population in the pop_data_long are not numeric. They have short forms like K,B and M. Replace them appropriately
+pop_data_long["population"] = replace_letters_in_pop_vec(pop_data_long["population"])
 ```
 
 ```{python}
@@ -53,44 +89,22 @@ pop_ave_income_data = pd.merge(
 )
 ```
 ```{python}
-# Convert the year column of the new dataset, pop_ave_income_data, to numeric
-pop_ave_income_data["year"] = pd.to_numeric(pop_ave_income_data["year"])
+# # Convert the year column of the new dataset, pop_ave_income_data, to numeric
+# pop_ave_income_data["year"] = pd.to_numeric(pop_ave_income_data["year"])
 
-# convert the population column to numeric.
-# 1. Repalace letters appropriately.
-## Extract the letter from the values, normally, the letter is at the end.
-
-
-# Define a function to convert a string to numeric, replacing the letters with their values
-def replace_letters_in_pop(string: str):
-    """Replace letters that are commonly used to write figures in their short forms.
-    For example, 1000 = 1k"""
-    string = string.upper()
-    # extract the letter from the string
-    letter = re.search("[BKM]$", string)
-    if letter:
-        letter_conversion_figure = {"K": 1000, "M": 1000000, "B": 1000000000}
-        char = letter.group(0)
-        return float(string.replace(char,""))*letter_conversion_figure[char]
-    else:
-        return float(string) 
-
-
-replace_letters_in_pop_vec = np.vectorize(replace_letters_in_pop)
-
-pop_ave_income_data["population"] = replace_letters_in_pop_vec(pop_ave_income_data["population"])
+# pop_ave_income_data["population"] = replace_letters_in_pop_vec(pop_ave_income_data["population"])
 ```
 
 # Country populations
-## Row {height="20%"}
-### Column {width="30%"}
+## Row
+### Column {width="20%"}
 ::: {.valuebox title="Highest population" color="red" icon="arrow-up"}
 
 `{python} sum(pop_ave_income_data["population"])`
 
 :::
 
-### Column {width="30%"}
+### Column {width="20%"}
 ::: {.valuebox title="minimum population" color="blue" icon="arrow-down"}
 
 `{python} min(pop_ave_income_data["population"])`
@@ -98,22 +112,16 @@ pop_ave_income_data["population"] = replace_letters_in_pop_vec(pop_ave_income_da
 :::
 ## Row
 ### column {.tabset} 
-#### Original data
-
-The data being analysed in this section was downloaded from [gapminder](https://www.gapminder.org/data/)
-```{python}
-show(pop_data)
-```
-
-#### Cleaned data
-```{python}
-show(pop_data_long)
-```
-
-#### Visualize the data
+#### A map of Countries with their population
 
 ```{python}
-
+px.choropleth(
+    pop_data_long,
+    locations="country",
+    color="population",
+    hover_name="country",
+    color_continuous_scale="reds",
+)
 ```
 
 
@@ -188,4 +196,35 @@ px.choropleth(
     title="Map of countries with their average daily income",
     color_continuous_scale="reds",
 )
+```
+
+# Data Used for analysis
+
+## Row
+### Column {.tabset}
+#### Population Data
+##### Column {.tabset}
+###### Original Data
+
+```{python}
+show(pop_data)
+```
+###### Cleaned Data
+
+```{python}
+show(pop_data_long)
+```
+
+##### Average Daily Income  Data
+#### Population Data
+##### Column {.tabset}
+###### Original Data
+
+```{python}
+show(average_daily_inocme)
+```
+###### Cleaned Data
+
+```{python}
+show(average_daily_inocme_long)
 ```
