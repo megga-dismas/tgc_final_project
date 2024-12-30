@@ -1,0 +1,192 @@
+---
+title: "Economic status of different countries in 2023, based on their average daily income"
+format: dashboard
+background_color: red
+---
+
+
+```{python}
+# import neccessary packages
+import pandas as pd
+import plotly.express as px
+from itables import show
+import matplotlib.pyplot as plt
+import re
+import numpy as np
+```
+
+```{python}
+# import the data
+pop_data = pd.read_csv("data/pop.csv")
+average_daily_inocme = pd.read_csv("data/mincpcap_cppp.csv")
+```
+
+```{python}
+# Melt the data, and query for the year 2023
+
+# 1. population dataset
+pop_data_long = pd.melt(
+    pop_data,
+    id_vars="country",
+    var_name="year",
+    value_name="population",
+).query("year == '2023'")
+
+# 2. average_daily_inocme dataset
+average_daily_inocme_long = pd.melt(
+    average_daily_inocme,
+    id_vars="country",
+    var_name="year",
+    value_name="ave_daily_income",
+).query("year == '2023'")
+```
+
+```{python}
+# drop missing values in population dataset
+pop_data_long = pop_data_long.dropna()
+```
+
+```{python}
+# Merge population data with average daily income on country.
+
+pop_ave_income_data = pd.merge(
+    pop_data_long, average_daily_inocme_long, on=["country", "year"], how="left"
+)
+```
+```{python}
+# Convert the year column of the new dataset, pop_ave_income_data, to numeric
+pop_ave_income_data["year"] = pd.to_numeric(pop_ave_income_data["year"])
+
+# convert the population column to numeric.
+# 1. Repalace letters appropriately.
+## Extract the letter from the values, normally, the letter is at the end.
+
+
+# Define a function to convert a string to numeric, replacing the letters with their values
+def replace_letters_in_pop(string: str):
+    """Replace letters that are commonly used to write figures in their short forms.
+    For example, 1000 = 1k"""
+    string = string.upper()
+    # extract the letter from the string
+    letter = re.search("[BKM]$", string)
+    if letter:
+        letter_conversion_figure = {"K": 1000, "M": 1000000, "B": 1000000000}
+        char = letter.group(0)
+        return float(string.replace(char,""))*letter_conversion_figure[char]
+    else:
+        return float(string) 
+
+
+replace_letters_in_pop_vec = np.vectorize(replace_letters_in_pop)
+
+pop_ave_income_data["population"] = replace_letters_in_pop_vec(pop_ave_income_data["population"])
+```
+
+# Country populations
+## Row {height="20%"}
+### Column {width="30%"}
+::: {.valuebox title="Highest population" color="red" icon="arrow-up"}
+
+`{python} max(pop_ave_income_data["population"])`
+
+:::
+
+### Column {width="30%"}
+::: {.valuebox title="minimum population" color="blue" icon="arrow-down"}
+
+`{python} min(pop_ave_income_data["population"])`
+
+:::
+## Row
+### column {.tabset} 
+#### Original data
+
+The data being analysed in this section was downloaded from [gapminder](https://www.gapminder.org/data/)
+```{python}
+show(pop_data)
+```
+
+#### Cleaned data
+```{python}
+show(pop_data_long)
+```
+
+#### Visualize the data
+
+```{python}
+
+```
+
+
+# Average Daily Income
+
+The data being analysed in this section was downloaded from [gapminder](https://www.gapminder.org/data/)
+
+## Row {height="20%"}
+### Column {width="30%"}
+::: {.valuebox title="Highest Average Daily Income" color="red" icon="arrow-up"}
+
+`{python} max(pop_ave_income_data["ave_daily_income"])`
+
+:::
+
+### Column {width="30%"}
+::: {.valuebox title="minimum Average Daily Income" color="blue" icon="arrow-down"}
+
+`{python} min(pop_ave_income_data["ave_daily_income"])`
+
+:::
+## Row
+### column {.tabset} 
+#### Original data
+
+The data being analysed in this section was downloaded from [gapminder](https://www.gapminder.org/data/)
+```{python}
+show(average_daily_inocme)
+```
+
+#### Cleaned data
+```{python}
+show(average_daily_inocme_long)
+```
+
+#### Visualize the data
+
+```{python}
+
+```
+
+
+# Does the size of the population have an effect on average daily income?
+
+## Column 
+### Relationship between the size of the population and average daily income
+```{python}
+px.scatter(
+    pop_ave_income_data,
+    x="ave_daily_income",
+    y="population",
+    color="country",
+    title="Relationship between the size of the population and average daily income ",
+    labels={
+        "ave_daily_income": "Average Daily Income ($)",
+        "population": "Population in Billions",
+    },
+)
+
+"""The size of the population is not a significant factor that affects the average daily income"""
+```
+#### A map showing the countries with their respective average daily income
+
+```{python}
+# A map showing the countries with their respective average daily income
+
+px.choropleth(
+    pop_ave_income_data,
+    locations="country",
+    color="ave_daily_income",
+    hover_name="country",
+    title="Map of countries with their average daily income",
+    color_continuous_scale="reds",
+)
+```
