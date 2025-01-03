@@ -131,7 +131,7 @@ Therefore, the higher the the household per capita, the higher the econimic stat
 Important: The datasets analysed in this project were downloaded from the [Gapminder](https://www.gapminder.org/data/) website
 
 # Country populations
-## Row {height="30%"}
+## Row {height="35%"}
 ### Column {width="50%"}
 ::: {.valuebox title="Highest population" color="red" icon="arrow-up"}
 `{python} max(pop_data_long["population"])`
@@ -147,7 +147,7 @@ Important: The datasets analysed in this project were downloaded from the [Gapmi
 `{python} pop_data_long.loc[pop_data_long["population"].idxmin()]["country"]`
 
 :::
-## Row {height="70%"}
+## Row {height="65%"}
 ### column {.tabset}
 #### Top `{python} TOP` Countries with highest population
 
@@ -202,7 +202,7 @@ px.choropleth(
 India and China are extremely populated compared to other countries.
 
 # Average Daily Income
-## Row {height="30%"}
+## Row {height="35%"}
 ### Column
 ::: {.valuebox title="Highest Average Daily Household per capita (USD)" color="red" icon="arrow-up"}
 `{python} max(average_daily_income_long["average_daily_income"])`
@@ -218,7 +218,7 @@ India and China are extremely populated compared to other countries.
 `{python} average_daily_income_long.loc[average_daily_income_long["average_daily_income"].idxmin()]["country"]`
 
 :::
-## Row {height="70%"}
+## Row {height="65%"}
 ### column {.tabset} 
 
 #### Top `{python} TOP` countries with highest mean daily household per capita
@@ -349,7 +349,7 @@ show(pop_data_long, buttons="donwload", footer=True)
 ```
 
 
-#### Average Daily Income Data
+#### Mean Daily Household per capita
 ##### Column {.tabset}
 ###### Original Data
 
