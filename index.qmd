@@ -1,29 +1,29 @@
 ---
-title: "Economic status of different countries in 2023, based on their average daily income"
+title: "Countries and their Economic status of their citizens in 2023, based on their mean daily household per capita"
 format: dashboard
 ---
-
 
 ```{python}
 # import neccessary packages
 import pandas as pd
 import plotly.express as px
 from itables import show
-import matplotlib.pyplot as plt
 import re
 import numpy as np
+import country_converter as coco
 ```
 
+```{python}
+# Define a varible for top countries
+TOP = 20
+```
 ```{python}
 # import the data
 pop_data = pd.read_csv("data/pop.csv")
-average_daily_inocme = pd.read_csv("data/mincpcap_cppp.csv")
+average_daily_income = pd.read_csv("data/mincpcap_cppp.csv")
 ```
 
 ```{python}
-# convert the population column to numeric.
-
-
 # Define a function to convert a string to numeric, replacing the letters with their appropriate values (thousands(k), million(m) and billion(b))
 def replace_letters_in_pop(string: str):
     """Replace letters that are commonly used to write figures in their short forms.
@@ -42,7 +42,7 @@ def replace_letters_in_pop(string: str):
 replace_letters_in_pop_vec = np.vectorize(replace_letters_in_pop)
 ```
 ```{python}
-# Melt the data
+# Melt the data and query for the year 2023
 
 # 1. population dataset
 pop_data_long = pd.melt(
@@ -50,29 +50,47 @@ pop_data_long = pd.melt(
     id_vars="country",
     var_name="year",
     value_name="population",
-)
+).query("year == '2023'")
 
 # 2. average_daily_inocme dataset
-average_daily_inocme_long = pd.melt(
-    average_daily_inocme,
+average_daily_income_long = pd.melt(
+    average_daily_income,
     id_vars="country",
     var_name="year",
-    value_name="ave_daily_income",
-)
+    value_name="average_daily_income",
+).query("year == '2023'")
 ```
 
 ```{python}
+# Add country codes to each of the datasets
+pop_data_long["country_code"] = coco.convert(
+    names=pop_data_long["country"], to="ISO3", not_found=None
+)
+average_daily_income_long["country_code"] = coco.convert(
+    names=average_daily_income_long["country"], to="ISO3", not_found=None
+)
+```
+```{python}
+# check for missing values in the datasets and drop them.
+if average_daily_income_long.isnull().sum().any():
+    average_daily_income_long = average_daily_income_long.dropna()
+
+if pop_data_long.isnull().sum().any():
+    pop_data_long = pop_data_long.dropna()
+```
+```{python}
 # Convert the year in the average_daily_inocme_long dataset to numeric
-average_daily_inocme_long["year"] = pd.to_numeric(average_daily_inocme_long["year"])
+average_daily_income_long["year"] = pd.to_numeric(average_daily_income_long["year"])
 
 # Also, do the same for the pop_data_long dataset
 pop_data_long["year"] = pd.to_numeric(pop_data_long["year"])
 ```
 
 ```{python}
-# drop missing values in the datasets
-pop_data_long = pop_data_long.dropna()
-average_daily_inocme_long = average_daily_inocme_long.dropna()
+# Sort countries according to their average daily income from highest to lowest and pick the first 20 countries
+average_daily_income_long = average_daily_income_long.sort_values(
+    by="average_daily_income", ascending=False
+)
 ```
 
 
@@ -82,123 +100,238 @@ pop_data_long["population"] = replace_letters_in_pop_vec(pop_data_long["populati
 ```
 
 ```{python}
-# Merge population data with average daily income on country.
+# Drop the year columns in both datasets
 
-pop_ave_income_data = pd.merge(
-    pop_data_long, average_daily_inocme_long, on=["country", "year"], how="left"
+pop_data_long = pop_data_long.drop(columns="year")
+average_daily_income_long = average_daily_income_long.drop(columns="year")
+```
+
+```{python}
+# Merge the two datasets
+final_dataset = pd.merge(
+    left=average_daily_income_long,
+    right=pop_data_long,
+    on=["country", "country_code"],
+    how="inner",
+)
+
+# Add column for total income person in a country.
+# average income multiplied by population
+final_dataset["total_income"] = (
+    final_dataset["population"] * final_dataset["average_daily_income"]
 )
 ```
-```{python}
-# # Convert the year column of the new dataset, pop_ave_income_data, to numeric
-# pop_ave_income_data["year"] = pd.to_numeric(pop_ave_income_data["year"])
 
-# pop_ave_income_data["population"] = replace_letters_in_pop_vec(pop_ave_income_data["population"])
-```
+# Home
+
+Economic status, for this purpose, is defined as the ability of a household to access household necessities with financial implications.
+
+Therefore, the higher the the household per capita, the higher the econimic status and vice versa.
+
+Important: The datasets analysed in this project were downloaded from the [Gapminder](https://www.gapminder.org/data/) website
 
 # Country populations
-## Row
-### Column {width="20%"}
+## Row {height="30%"}
+### Column {width="50%"}
 ::: {.valuebox title="Highest population" color="red" icon="arrow-up"}
+`{python} max(pop_data_long["population"])`
 
-`{python} sum(pop_ave_income_data["population"])`
-
+`{python} pop_data_long.loc[pop_data_long["population"].idxmax()]["country"]`
 :::
 
-### Column {width="20%"}
-::: {.valuebox title="minimum population" color="blue" icon="arrow-down"}
+### Column {width="50%"}
+::: {.valuebox title="Lowest population" color="blue" icon="arrow-down"}
 
-`{python} min(pop_ave_income_data["population"])`
+`{python} min(pop_data_long["population"])`
+
+`{python} pop_data_long.loc[pop_data_long["population"].idxmin()]["country"]`
 
 :::
-## Row
-### column {.tabset} 
-#### A map of Countries with their population
+## Row {height="70%"}
+### column {.tabset}
+#### Top `{python} TOP` Countries with highest population
+
+```{python}
+fig = px.bar(
+    pop_data_long.sort_values(by="population", ascending=False).head(TOP),
+    x="country",
+    y="population",
+    labels={"country": "Country", "population": "Population (Billion)"},
+    text_auto=True,
+    color="country",
+    title=f"Top {TOP} countries with highest population",
+)
+fig = fig.update_layout(showlegend=False)
+fig.update_xaxes(tickangle=45)
+```
+
+#### Top `{python} TOP` Countries with the lowest population
+
+```{python}
+fig = px.bar(
+    pop_data_long.sort_values(by="population", ascending=True).head(TOP),
+    x="country",
+    y="population",
+    labels={"country": "Country", "population": "Population (Thousands)"},
+    text_auto=True,
+    color="country",
+    title=f"Top {TOP} countries with the lowest population",
+)
+fig = fig.update_layout(showlegend=False)
+fig.update_xaxes(tickangle=45)
+```
+#### A map of Countries showing their population distribution
+##### Row
+###### Column {width="80%"}
 
 ```{python}
 px.choropleth(
     pop_data_long,
-    locations="country",
+    locations="country_code",
     color="population",
     hover_name="country",
     color_continuous_scale="reds",
+    title="A map of Countries showing their population distribution",
 )
 ```
 
+###### Column {width="20%"}
+
+**Observation**
+
+India and China are extremely populated compared to other countries.
 
 # Average Daily Income
+## Row {height="30%"}
+### Column
+::: {.valuebox title="Highest Average Daily Household per capita (USD)" color="red" icon="arrow-up"}
+`{python} max(average_daily_income_long["average_daily_income"])`
 
-The data being analysed in this section was downloaded from [gapminder](https://www.gapminder.org/data/)
-
-## Row {height="20%"}
-### Column {width="30%"}
-::: {.valuebox title="Highest Average Daily Income" color="red" icon="arrow-up"}
-
-`{python} max(pop_ave_income_data["ave_daily_income"])`
+`{python} average_daily_income_long.loc[average_daily_income_long["average_daily_income"].idxmax()]["country"]`
 
 :::
 
-### Column {width="30%"}
-::: {.valuebox title="minimum Average Daily Income" color="blue" icon="arrow-down"}
+### Column
+::: {.valuebox title="Lowest Average Daily Household per capita (USD)" color="blue" icon="arrow-down"}
+`{python} min(average_daily_income_long["average_daily_income"])`
 
-`{python} min(pop_ave_income_data["ave_daily_income"])`
+`{python} average_daily_income_long.loc[average_daily_income_long["average_daily_income"].idxmin()]["country"]`
 
 :::
-## Row
+## Row {height="70%"}
 ### column {.tabset} 
-#### Original data
 
-The data being analysed in this section was downloaded from [gapminder](https://www.gapminder.org/data/)
-```{python}
-show(average_daily_inocme)
-```
-
-#### Cleaned data
-```{python}
-show(average_daily_inocme_long)
-```
-
-#### Visualize the data
+#### Top `{python} TOP` countries with highest mean daily household per capita
 
 ```{python}
+fig = px.bar(
+    average_daily_income_long.sort_values(
+        by="average_daily_income", ascending=False
+    ).head(TOP),
+    x="country",
+    y="average_daily_income",
+    color="country",
+    text_auto=True,
+    labels={
+        "average_daily_income": "Average Daily Household per capita",
+        "country": "Country",
+    },
+    title=f"Top {TOP} countries with highest mean daily household per capita (USD)",
+)
+fig = fig.update_layout(showlegend=False)
+fig.update_xaxes(tickangle=45)
+```
 
+#### Top `{python} TOP` countries with lowest mean daily household per capita
+
+```{python}
+fig = px.bar(
+    average_daily_income_long.sort_values(
+        by="average_daily_income", ascending=True
+    ).head(TOP),
+    x="country",
+    y="average_daily_income",
+    color="country",
+    text_auto=True,
+    labels={
+        "average_daily_income": "Average Daily Household per capita",
+        "country": "Country",
+    },
+    title=f"Top {TOP} countries with the lowest mean daily household per capita (USD)",
+)
+fig = fig.update_layout(showlegend=False)
+fig.update_xaxes(tickangle=45)
+```
+
+#### A map showing distribution of mean daily household per capita
+
+```{python}
+px.choropleth(
+    average_daily_income_long,
+    locations="country_code",
+    color="average_daily_income",
+    color_continuous_scale="reds",
+    title="A map showing distribution of mean daily household per capita (USD)",
+)
 ```
 
 
-# Does the size of the population have an effect on average daily income?
+# Does the size of the population have an effect on mean daily household per capita?
 
 ## Column 
-### Relationship between the size of the population and average daily income
+### Relationship between population and household per capita
+
+#### Row {height="30%"}
+
+**Analysis**
+
+The size of the population is not a significant factor that affects the mean daily household per capita.
+
+However, the total daily household per capita increases according to the population but, the average is almost at a similar level.
+This means there are other factors to consider in determining the daily household per capita, other than the size of the population.
+
+An example is **India** and **China** whose population is far beyond the population of the other countries, but, their mean daily household per capital lies in the lower range with most other countries.
+For **Singapore**, its population is relatively minimum, but, the mean daily household per capita is the highest.
+
+**USA** has the highest total daily household per capita, but, the wealth maybe owned by a few individuals compared to **Singapore**
+
+#### Row {height="10%"}
+**Scatter plots showing showing the relationship between mean daily household per capita and total daily household per capita and population**
+
+#### Row {height="60%"}
+##### Column
+###### The size of the population and mean daily household per capita
 ```{python}
 px.scatter(
-    pop_ave_income_data,
-    x="ave_daily_income",
+    final_dataset,
+    x="average_daily_income",
     y="population",
     color="country",
-    title="Relationship between the size of the population and average daily income ",
     labels={
-        "ave_daily_income": "Average Daily Income ($)",
-        "population": "Population in Billions",
+        "average_daily_income": "Mean Daily Household per capita ($)",
+        "population": "Population",
     },
+    title="Relationship between the size of the population and mean daily household per capita",
 )
-
-"""The size of the population is not a significant factor that affects the average daily income"""
 ```
-#### A map showing the countries with their respective average daily income
+##### Column
+###### Plot of size of the population and mean daily household per capita
 
 ```{python}
-# A map showing the countries with their respective average daily income
-
-px.choropleth(
-    pop_ave_income_data,
-    locations="country",
-    color="ave_daily_income",
-    hover_name="country",
-    title="Map of countries with their average daily income",
-    color_continuous_scale="reds",
+px.scatter(
+    final_dataset,
+    x="population",
+    y="total_income",
+    color="country",
+    labels={
+        "total_income": "Total Daily household per capita ($)",
+        "population": "Population",
+    },
+    title="Relationship between the size of the population and total daily household per capita",
 )
 ```
 
-# Data Used for analysis
+# Data
 
 ## Row
 ### Column {.tabset}
@@ -207,24 +340,24 @@ px.choropleth(
 ###### Original Data
 
 ```{python}
-show(pop_data)
+show(pop_data, buttons="donwload", footer=True)
 ```
 ###### Cleaned Data
 
 ```{python}
-show(pop_data_long)
+show(pop_data_long, buttons="donwload", footer=True)
 ```
 
-##### Average Daily Income  Data
-#### Population Data
+
+#### Average Daily Income Data
 ##### Column {.tabset}
 ###### Original Data
 
 ```{python}
-show(average_daily_inocme)
+show(average_daily_income, buttons="donwload", footer=True)
 ```
 ###### Cleaned Data
 
 ```{python}
-show(average_daily_inocme_long)
+show(average_daily_income_long, buttons="download", footer=True)
 ```
